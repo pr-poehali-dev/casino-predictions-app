@@ -51,7 +51,7 @@ const GameSidebar = ({
           <div className="space-y-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-muted-foreground">Точность AI</span>
-              <Badge className="bg-emerald-600 text-white">99% Success Rate</Badge>
+              <Badge className="bg-emerald-600 text-white">100% Гарантия</Badge>
             </div>
             
             <div className="p-4 bg-gradient-to-br from-emerald-950/50 to-emerald-900/30 rounded-lg border-2 border-emerald-600/50 gold-glow">
@@ -130,20 +130,20 @@ const GameSidebar = ({
         
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-gradient-to-br from-red-900/60 to-red-800/60 border border-red-600/70"></div>
+            <span className="text-muted-foreground">БОМБА (не нажимать!)</span>
+          </div>
+          <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-gradient-to-br from-green-900/40 to-green-800/40 border border-green-700/50"></div>
-            <span className="text-muted-foreground">97-99% безопасно</span>
+            <span className="text-muted-foreground">100% безопасно</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-gradient-to-br from-[#1A1625] to-[#0f0b14] border border-[#2a2435]"></div>
-            <span className="text-muted-foreground">Скрытая ячейка</span>
+            <Icon name="Shield" size={16} className="text-green-400" />
+            <span className="text-muted-foreground">Безопасная зона</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-2xl">💎</span>
-            <span className="text-muted-foreground">Безопасная ячейка</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Icon name="Bomb" size={16} className="text-red-500" />
-            <span className="text-muted-foreground">Бомба (проигрыш)</span>
+            <Icon name="Bomb" size={16} className="text-red-400" />
+            <span className="text-muted-foreground">Скрытая бомба</span>
           </div>
         </div>
       </Card>

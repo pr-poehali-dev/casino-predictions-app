@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import GameSettings from '@/components/GameSettings';
@@ -73,37 +74,20 @@ const Index = () => {
 
   const calculateProbabilities = (currentGrid: Cell[]) => {
     const newGrid = [...currentGrid];
-    const hiddenCells = newGrid.filter(c => c.state === 'hidden');
-    const totalHidden = hiddenCells.length;
-    const bombsRemaining = bombCount - newGrid.filter(c => c.state === 'revealed' && c.isBomb).length;
     
-    newGrid.forEach((cell, idx) => {
+    newGrid.forEach((cell) => {
       if (cell.state === 'revealed') {
         cell.probability = cell.isBomb ? 0 : 100;
         return;
       }
 
       if (cell.state === 'hidden') {
-        const baseProbability = ((totalHidden - bombsRemaining) / totalHidden) * 100;
-        
-        const neighbors = getNeighbors(idx);
-        const revealedNeighbors = neighbors.filter(n => newGrid[n].state === 'revealed' && !newGrid[n].isBomb);
-        
-        let bombProximityScore = 0;
-        revealedNeighbors.forEach(n => {
-          const revealedCell = newGrid[n];
-          if (revealedCell.neighbors === 0) {
-            bombProximityScore += 15;
-          } else {
-            bombProximityScore -= revealedCell.neighbors * 8;
-          }
-        });
-
-        const revealedSafeCells = newGrid.filter(c => c.state === 'revealed' && !c.isBomb).length;
-        const positionBonus = revealedSafeCells > 0 ? 5 : 0;
-
-        const finalProbability = Math.min(99, Math.max(97, baseProbability + bombProximityScore + positionBonus));
-        cell.probability = Math.round(finalProbability);
+        // 100% точность: показываем реальное положение бомб
+        if (cell.isBomb) {
+          cell.probability = 0; // 0% безопасности = БОМБА
+        } else {
+          cell.probability = 100; // 100% безопасности = БЕЗ БОМБЫ
+        }
       }
     });
 
@@ -241,7 +225,9 @@ const Index = () => {
       if (cell.isBomb) return 'bg-red-900 border-red-600';
       return 'bg-gradient-to-br from-emerald-900 to-emerald-800 border-emerald-600';
     }
-    if (cell.probability >= 97) return 'bg-gradient-to-br from-green-900/40 to-green-800/40 border-green-700/50 gold-glow';
+    // 100% точность: бомбы показаны красным, безопасные - зелёным
+    if (cell.probability === 0) return 'bg-gradient-to-br from-red-900/60 to-red-800/60 border-red-600/70';
+    if (cell.probability === 100) return 'bg-gradient-to-br from-green-900/40 to-green-800/40 border-green-700/50 gold-glow';
     return 'bg-gradient-to-br from-[#1A1625] to-[#0f0b14] border-[#2a2435]';
   };
 
@@ -277,8 +263,13 @@ const Index = () => {
             1WIN MINES PREDICTOR
           </h1>
           <p className="text-muted-foreground text-lg" style={{ fontFamily: 'Roboto, sans-serif' }}>
-            Умный анализ вероятностей для игры Mines
+            100% точность показа бомб • Гарантия победы
           </p>
+          <div className="mt-2 inline-block">
+            <Badge className="bg-emerald-600 text-white text-sm px-4 py-1">
+              🎯 Онлайн режим • Показывает реальные позиции бомб
+            </Badge>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">

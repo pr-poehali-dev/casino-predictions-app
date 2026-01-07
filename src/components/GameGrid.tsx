@@ -114,18 +114,9 @@ const GameGrid = ({
             
             {cell.state === 'hidden' && showProbabilities && isPlaying && (
               <div className="flex flex-col items-center">
-                {cell.probability <= 5 ? (
-                  <div className="flex flex-col items-center">
-                    <Icon name="Bomb" size={20} className="text-red-400 mb-1" />
-                    <span className="text-xs font-semibold text-red-400">
-                      {cell.probability}%
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-xs font-semibold text-accent">
-                    {cell.probability}%
-                  </span>
-                )}
+                <span className="text-xs font-semibold text-accent">
+                  {cell.probability}%
+                </span>
               </div>
             )}
 

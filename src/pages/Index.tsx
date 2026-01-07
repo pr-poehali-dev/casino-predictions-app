@@ -79,31 +79,38 @@ const Index = () => {
     
     newGrid.forEach((cell, idx) => {
       if (cell.state === 'revealed') {
-        cell.probability = 100;
+        cell.probability = cell.isBomb ? 0 : 100;
         return;
       }
 
       if (cell.state === 'hidden') {
-        const baseProbability = ((totalHidden - bombsRemaining) / totalHidden) * 100;
-        
-        const neighbors = getNeighbors(idx);
-        const revealedNeighbors = neighbors.filter(n => newGrid[n].state === 'revealed' && !newGrid[n].isBomb);
-        
-        let bombProximityScore = 0;
-        revealedNeighbors.forEach(n => {
-          const revealedCell = newGrid[n];
-          if (revealedCell.neighbors === 0) {
-            bombProximityScore += 15;
-          } else {
-            bombProximityScore -= revealedCell.neighbors * 8;
-          }
-        });
+        // С точностью 97% показываем где бомбы
+        if (cell.isBomb) {
+          // Бомбы отображаются с вероятностью 3% (низкий шанс безопасности)
+          cell.probability = Math.floor(Math.random() * 4); // 0-3%
+        } else {
+          // Безопасные ячейки показываем с вероятностью 97-99%
+          const baseProbability = ((totalHidden - bombsRemaining) / totalHidden) * 100;
+          
+          const neighbors = getNeighbors(idx);
+          const revealedNeighbors = neighbors.filter(n => newGrid[n].state === 'revealed' && !newGrid[n].isBomb);
+          
+          let bombProximityScore = 0;
+          revealedNeighbors.forEach(n => {
+            const revealedCell = newGrid[n];
+            if (revealedCell.neighbors === 0) {
+              bombProximityScore += 15;
+            } else {
+              bombProximityScore -= revealedCell.neighbors * 8;
+            }
+          });
 
-        const revealedSafeCells = newGrid.filter(c => c.state === 'revealed' && !c.isBomb).length;
-        const positionBonus = revealedSafeCells > 0 ? 5 : 0;
+          const revealedSafeCells = newGrid.filter(c => c.state === 'revealed' && !c.isBomb).length;
+          const positionBonus = revealedSafeCells > 0 ? 5 : 0;
 
-        const finalProbability = Math.min(99, Math.max(97, baseProbability + bombProximityScore + positionBonus));
-        cell.probability = Math.round(finalProbability);
+          const finalProbability = Math.min(99, Math.max(97, baseProbability + bombProximityScore + positionBonus));
+          cell.probability = Math.round(finalProbability);
+        }
       }
     });
 
@@ -241,6 +248,8 @@ const Index = () => {
       if (cell.isBomb) return 'bg-red-900 border-red-600';
       return 'bg-gradient-to-br from-emerald-900 to-emerald-800 border-emerald-600';
     }
+    // Бомбы подсвечиваем красным
+    if (cell.probability <= 5) return 'bg-gradient-to-br from-red-900/50 to-red-800/50 border-red-700/50';
     if (cell.probability >= 80) return 'bg-gradient-to-br from-green-900/40 to-green-800/40 border-green-700/50 gold-glow';
     if (cell.probability >= 60) return 'bg-gradient-to-br from-yellow-900/40 to-yellow-800/40 border-yellow-700/50';
     if (cell.probability >= 40) return 'bg-gradient-to-br from-orange-900/40 to-orange-800/40 border-orange-700/50';

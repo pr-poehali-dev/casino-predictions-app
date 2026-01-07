@@ -130,16 +130,12 @@ const GameSidebar = ({
         
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-gradient-to-br from-red-900/50 to-red-800/50 border border-red-700/50"></div>
+            <span className="text-muted-foreground">0-5% (Бомба!)</span>
+          </div>
+          <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-gradient-to-br from-green-900/40 to-green-800/40 border border-green-700/50"></div>
-            <span className="text-muted-foreground">80%+ безопасно</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-gradient-to-br from-yellow-900/40 to-yellow-800/40 border border-yellow-700/50"></div>
-            <span className="text-muted-foreground">60-79% безопасно</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-gradient-to-br from-orange-900/40 to-orange-800/40 border border-orange-700/50"></div>
-            <span className="text-muted-foreground">40-59% безопасно</span>
+            <span className="text-muted-foreground">97-99% безопасно</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-2xl">💎</span>
@@ -147,7 +143,7 @@ const GameSidebar = ({
           </div>
           <div className="flex items-center gap-2">
             <Icon name="Bomb" size={16} className="text-red-500" />
-            <span className="text-muted-foreground">Бомба</span>
+            <span className="text-muted-foreground">Открытая бомба</span>
           </div>
         </div>
       </Card>

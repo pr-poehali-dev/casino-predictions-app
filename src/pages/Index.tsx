@@ -102,7 +102,7 @@ const Index = () => {
         const revealedSafeCells = newGrid.filter(c => c.state === 'revealed' && !c.isBomb).length;
         const positionBonus = revealedSafeCells > 0 ? 5 : 0;
 
-        const finalProbability = Math.min(99, Math.max(10, baseProbability + bombProximityScore + positionBonus));
+        const finalProbability = Math.min(99, Math.max(97, baseProbability + bombProximityScore + positionBonus));
         cell.probability = Math.round(finalProbability);
       }
     });

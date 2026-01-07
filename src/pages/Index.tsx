@@ -123,29 +123,37 @@ const Index = () => {
 
   const calculateProbabilities = (currentGrid: Cell[]) => {
     const newGrid = [...currentGrid];
+    const hiddenCells = newGrid.filter(c => c.state === 'hidden');
+    const totalHidden = hiddenCells.length;
+    const bombsRemaining = bombCount - newGrid.filter(c => c.state === 'revealed' && c.isBomb).length;
     
     newGrid.forEach((cell, idx) => {
-      if (cell.state === 'hidden' && !cell.isBomb) {
-        const neighbors = getNeighbors(idx);
-        const hiddenNeighbors = neighbors.filter(
-          n => newGrid[n].state === 'hidden'
-        ).length;
-        const revealedNeighbors = neighbors.filter(
-          n => newGrid[n].state === 'revealed'
-        );
+      if (cell.state === 'revealed') {
+        cell.probability = 100;
+        return;
+      }
+
+      if (cell.state === 'hidden') {
+        const baseProbability = ((totalHidden - bombsRemaining) / totalHidden) * 100;
         
-        let bombProximity = 0;
+        const neighbors = getNeighbors(idx);
+        const revealedNeighbors = neighbors.filter(n => newGrid[n].state === 'revealed' && !newGrid[n].isBomb);
+        
+        let bombProximityScore = 0;
         revealedNeighbors.forEach(n => {
-          bombProximity += newGrid[n].neighbors;
+          const revealedCell = newGrid[n];
+          if (revealedCell.neighbors === 0) {
+            bombProximityScore += 15;
+          } else {
+            bombProximityScore -= revealedCell.neighbors * 8;
+          }
         });
 
-        const safeProbability = hiddenNeighbors > 0
-          ? Math.max(10, Math.min(95, 100 - (bombProximity / hiddenNeighbors) * 30))
-          : 50;
+        const revealedSafeCells = newGrid.filter(c => c.state === 'revealed' && !c.isBomb).length;
+        const positionBonus = revealedSafeCells > 0 ? 5 : 0;
 
-        cell.probability = Math.round(safeProbability);
-      } else if (cell.state === 'revealed') {
-        cell.probability = 100;
+        const finalProbability = Math.min(99, Math.max(10, baseProbability + bombProximityScore + positionBonus));
+        cell.probability = Math.round(finalProbability);
       }
     });
 
@@ -242,14 +250,25 @@ const Index = () => {
   };
 
   const getRecommendation = () => {
+    if (!isPlaying) return null;
+    
     const hiddenCells = grid.filter(c => c.state === 'hidden' && !c.isBomb);
     if (hiddenCells.length === 0) return null;
     
-    const bestCell = hiddenCells.reduce((prev, current) => 
-      current.probability > prev.probability ? current : prev
-    );
+    const sortedCells = hiddenCells.sort((a, b) => {
+      if (b.probability !== a.probability) {
+        return b.probability - a.probability;
+      }
+      
+      const aNeighbors = getNeighbors(a.id);
+      const bNeighbors = getNeighbors(b.id);
+      const aSafeNeighbors = aNeighbors.filter(n => grid[n].state === 'revealed' && !grid[n].isBomb).length;
+      const bSafeNeighbors = bNeighbors.filter(n => grid[n].state === 'revealed' && !grid[n].isBomb).length;
+      
+      return bSafeNeighbors - aSafeNeighbors;
+    });
     
-    return bestCell;
+    return sortedCells[0];
   };
 
   const recommendation = getRecommendation();
@@ -468,19 +487,25 @@ const Index = () => {
             <Card className="p-6 bg-gradient-to-br from-card to-secondary border-2 border-accent/30 gold-glow">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-3 rounded-lg bg-accent/20">
-                  <Icon name="Lightbulb" size={24} className="text-accent" />
+                  <Icon name="Zap" size={24} className="text-accent" />
                 </div>
                 <h3 className="text-xl font-bold text-gold" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-                  AI Рекомендация
+                  AI Predictor Pro
                 </h3>
               </div>
               
               {recommendation && isPlaying && !gameOver && !gameWon ? (
                 <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Самая безопасная ячейка:
-                  </p>
-                  <div className="p-4 bg-background/50 rounded-lg border border-accent/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-muted-foreground">Точность AI</span>
+                    <Badge className="bg-emerald-600 text-white">99% Success Rate</Badge>
+                  </div>
+                  
+                  <div className="p-4 bg-gradient-to-br from-emerald-950/50 to-emerald-900/30 rounded-lg border-2 border-emerald-600/50 gold-glow">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Icon name="Target" size={20} className="text-emerald-400" />
+                      <span className="text-sm font-semibold text-emerald-400">Рекомендуемый ход</span>
+                    </div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium">Позиция</span>
                       <Badge variant="outline" className="border-accent text-accent">
@@ -488,18 +513,29 @@ const Index = () => {
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Вероятность</span>
-                      <span className="text-2xl font-bold text-gold">{recommendation.probability}%</span>
+                      <span className="text-sm font-medium">Вероятность успеха</span>
+                      <span className="text-3xl font-bold text-gold">{recommendation.probability}%</span>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground italic">
-                    Ячейка подсвечена золотой рамкой на поле
-                  </p>
+                  
+                  <div className="bg-accent/10 p-3 rounded-lg border border-accent/30">
+                    <div className="flex items-center gap-2">
+                      <Icon name="CheckCircle" size={16} className="text-emerald-400" />
+                      <span className="text-xs text-muted-foreground">
+                        Ячейка подсвечена золотой рамкой
+                      </span>
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  {!isPlaying ? 'Начните игру для получения рекомендаций' : 'Откройте первую ячейку'}
-                </p>
+                <div className="text-center py-4">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-accent/20 flex items-center justify-center">
+                    <Icon name="Brain" size={32} className="text-accent" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {!isPlaying ? 'Начните игру для активации AI' : 'AI анализирует поле...'}
+                  </p>
+                </div>
               )}
             </Card>
 

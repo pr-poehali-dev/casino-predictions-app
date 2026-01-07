@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 
@@ -20,20 +22,34 @@ interface GameStats {
   wins: number;
   currentStreak: number;
   bestStreak: number;
+  totalProfit: number;
 }
 
 const GRID_SIZE = 5;
-const BOMB_COUNT = 5;
+const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
+const BOMB_OPTIONS = [1, 3, 5, 10, 15, 20, 24];
+
+const getMultiplier = (bombCount: number, safeCellsRevealed: number): number => {
+  const safeCells = TOTAL_CELLS - bombCount;
+  const baseMultiplier = Math.pow(safeCells / (safeCells - safeCellsRevealed + 1), 1.5);
+  const bombMultiplier = 1 + (bombCount / TOTAL_CELLS) * 2;
+  return Number((baseMultiplier * bombMultiplier).toFixed(2));
+};
 
 const Index = () => {
   const [grid, setGrid] = useState<Cell[]>([]);
   const [gameOver, setGameOver] = useState(false);
   const [gameWon, setGameWon] = useState(false);
+  const [bombCount, setBombCount] = useState(5);
+  const [betAmount, setBetAmount] = useState(100);
+  const [currentMultiplier, setCurrentMultiplier] = useState(1.0);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [stats, setStats] = useState<GameStats>({
     gamesPlayed: 0,
     wins: 0,
     currentStreak: 0,
     bestStreak: 0,
+    totalProfit: 0,
   });
   const [showProbabilities, setShowProbabilities] = useState(true);
   const [revealedCount, setRevealedCount] = useState(0);
@@ -42,11 +58,11 @@ const Index = () => {
     const newGrid: Cell[] = [];
     const bombPositions = new Set<number>();
 
-    while (bombPositions.size < BOMB_COUNT) {
-      bombPositions.add(Math.floor(Math.random() * (GRID_SIZE * GRID_SIZE)));
+    while (bombPositions.size < bombCount) {
+      bombPositions.add(Math.floor(Math.random() * TOTAL_CELLS));
     }
 
-    for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+    for (let i = 0; i < TOTAL_CELLS; i++) {
       newGrid.push({
         id: i,
         state: 'hidden',
@@ -67,11 +83,23 @@ const Index = () => {
     setGameOver(false);
     setGameWon(false);
     setRevealedCount(0);
+    setIsPlaying(true);
+    setCurrentMultiplier(1.0);
     calculateProbabilities(newGrid);
   };
 
   useEffect(() => {
-    initializeGrid();
+    const newGrid: Cell[] = [];
+    for (let i = 0; i < TOTAL_CELLS; i++) {
+      newGrid.push({
+        id: i,
+        state: 'hidden',
+        isBomb: false,
+        probability: 0,
+        neighbors: 0,
+      });
+    }
+    setGrid(newGrid);
   }, []);
 
   const getNeighbors = (index: number): number[] => {
@@ -125,7 +153,7 @@ const Index = () => {
   };
 
   const revealCell = (index: number) => {
-    if (gameOver || gameWon || grid[index].state !== 'hidden') return;
+    if (gameOver || gameWon || grid[index].state !== 'hidden' || !isPlaying) return;
 
     const newGrid = [...grid];
     const cell = newGrid[index];
@@ -134,15 +162,18 @@ const Index = () => {
       cell.state = 'revealed';
       setGrid(newGrid);
       setGameOver(true);
+      setIsPlaying(false);
       
+      const loss = -betAmount;
       setStats(prev => ({
         ...prev,
         gamesPlayed: prev.gamesPlayed + 1,
         currentStreak: 0,
+        totalProfit: prev.totalProfit + loss,
       }));
       
-      toast.error('Бомба! Игра окончена', {
-        description: `Открыто ячеек: ${revealedCount}`,
+      toast.error('💥 Бомба! Игра окончена', {
+        description: `Потеряно: ${betAmount} ₽`,
       });
       return;
     }
@@ -151,24 +182,52 @@ const Index = () => {
     const newRevealedCount = revealedCount + 1;
     setRevealedCount(newRevealedCount);
 
-    const safeCount = GRID_SIZE * GRID_SIZE - BOMB_COUNT;
+    const newMultiplier = getMultiplier(bombCount, newRevealedCount);
+    setCurrentMultiplier(newMultiplier);
+
+    const safeCount = TOTAL_CELLS - bombCount;
     if (newRevealedCount === safeCount) {
       setGameWon(true);
+      setIsPlaying(false);
       const newStreak = stats.currentStreak + 1;
+      const profit = Math.round(betAmount * newMultiplier - betAmount);
       setStats(prev => ({
         ...prev,
         gamesPlayed: prev.gamesPlayed + 1,
         wins: prev.wins + 1,
         currentStreak: newStreak,
         bestStreak: Math.max(prev.bestStreak, newStreak),
+        totalProfit: prev.totalProfit + profit,
       }));
-      toast.success('Победа! Все безопасные ячейки открыты!', {
-        description: `Серия побед: ${newStreak}`,
+      toast.success('🏆 Победа! Все безопасные ячейки открыты!', {
+        description: `Выигрыш: ${Math.round(betAmount * newMultiplier)} ₽ (×${newMultiplier})`,
       });
+    } else {
+      toast.success(`✨ Безопасно! Множитель ×${newMultiplier}`);
     }
 
     setGrid(newGrid);
     calculateProbabilities(newGrid);
+  };
+
+  const cashOut = () => {
+    if (!isPlaying || revealedCount === 0) return;
+    
+    setGameWon(true);
+    setIsPlaying(false);
+    const newStreak = stats.currentStreak + 1;
+    const profit = Math.round(betAmount * currentMultiplier - betAmount);
+    setStats(prev => ({
+      ...prev,
+      gamesPlayed: prev.gamesPlayed + 1,
+      wins: prev.wins + 1,
+      currentStreak: newStreak,
+      bestStreak: Math.max(prev.bestStreak, newStreak),
+      totalProfit: prev.totalProfit + profit,
+    }));
+    toast.success('💰 Вывод средств!', {
+      description: `Выигрыш: ${Math.round(betAmount * currentMultiplier)} ₽ (×${currentMultiplier})`,
+    });
   };
 
   const getCellColor = (cell: Cell) => {
@@ -200,14 +259,14 @@ const Index = () => {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold mb-2 text-gold" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-            1WIN PREDICTOR
+            1WIN MINES PREDICTOR
           </h1>
           <p className="text-muted-foreground text-lg" style={{ fontFamily: 'Roboto, sans-serif' }}>
-            Система умного анализа вероятностей
+            Умный анализ вероятностей для игры Mines
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
           <Card className="p-6 bg-gradient-to-br from-card to-secondary border-2 border-border">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-muted-foreground">Игр сыграно</span>
@@ -233,10 +292,83 @@ const Index = () => {
             </div>
             <p className="text-3xl font-bold text-gold">{stats.bestStreak}</p>
           </Card>
+
+          <Card className="p-6 bg-gradient-to-br from-card to-secondary border-2 border-border">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-muted-foreground">Общая прибыль</span>
+              <Icon name="DollarSign" size={20} className="text-accent" />
+            </div>
+            <p className={`text-3xl font-bold ${stats.totalProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {stats.totalProfit >= 0 ? '+' : ''}{stats.totalProfit} ₽
+            </p>
+          </Card>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
+            {!isPlaying && (
+              <Card className="p-6 bg-gradient-to-br from-card to-secondary border-2 border-accent/30 gold-glow">
+                <h3 className="text-xl font-bold text-gold mb-4" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                  Настройки игры
+                </h3>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      Ставка (₽)
+                    </label>
+                    <Input
+                      type="number"
+                      value={betAmount}
+                      onChange={(e) => setBetAmount(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="bg-background border-accent/30 text-foreground"
+                      min={1}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Количество бомб
+                      </label>
+                      <Badge variant="outline" className="border-accent text-accent text-lg">
+                        {bombCount}
+                      </Badge>
+                    </div>
+                    <Slider
+                      value={[bombCount]}
+                      onValueChange={(v) => setBombCount(v[0])}
+                      min={1}
+                      max={24}
+                      step={1}
+                      className="mb-2"
+                    />
+                    <div className="flex gap-2 flex-wrap">
+                      {BOMB_OPTIONS.map(option => (
+                        <Button
+                          key={option}
+                          variant={bombCount === option ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setBombCount(option)}
+                          className={bombCount === option ? 'bg-accent text-background' : 'border-accent/30'}
+                        >
+                          {option}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={initializeGrid}
+                    className="w-full bg-gradient-to-r from-accent to-primary hover:opacity-90 text-background font-semibold text-lg py-6 gold-glow-strong"
+                  >
+                    <Icon name="Play" size={20} className="mr-2" />
+                    Начать игру
+                  </Button>
+                </div>
+              </Card>
+            )}
+
             <Card className="p-8 bg-gradient-to-br from-card to-secondary border-2 border-border">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gold" style={{ fontFamily: 'Montserrat, sans-serif' }}>
@@ -248,31 +380,46 @@ const Index = () => {
                     size="sm"
                     onClick={() => setShowProbabilities(!showProbabilities)}
                     className="border-accent/50 hover:bg-accent/10"
+                    disabled={!isPlaying}
                   >
                     <Icon name={showProbabilities ? 'Eye' : 'EyeOff'} size={16} className="mr-2" />
                     Вероятности
                   </Button>
-                  <Button
-                    onClick={initializeGrid}
-                    className="bg-gradient-to-r from-accent to-primary hover:opacity-90 text-background font-semibold gold-glow"
-                  >
-                    <Icon name="RefreshCw" size={16} className="mr-2" />
-                    Новая игра
-                  </Button>
+                  {isPlaying && revealedCount > 0 && (
+                    <Button
+                      onClick={cashOut}
+                      className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:opacity-90 text-white font-semibold gold-glow"
+                    >
+                      <Icon name="DollarSign" size={16} className="mr-2" />
+                      Забрать {Math.round(betAmount * currentMultiplier)} ₽
+                    </Button>
+                  )}
                 </div>
               </div>
+
+              {isPlaying && (
+                <div className="mb-4 p-4 bg-accent/10 rounded-lg border border-accent/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Текущий множитель</span>
+                    <span className="text-3xl font-bold text-gold">×{currentMultiplier}</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    Потенциальный выигрыш: <span className="text-accent font-semibold">{Math.round(betAmount * currentMultiplier)} ₽</span>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-5 gap-3 mb-4">
                 {grid.map((cell) => (
                   <button
                     key={cell.id}
                     onClick={() => revealCell(cell.id)}
-                    disabled={gameOver || gameWon || cell.state === 'revealed'}
+                    disabled={!isPlaying || gameOver || gameWon || cell.state === 'revealed'}
                     className={`
                       aspect-square rounded-lg border-2 transition-all duration-300
                       ${getCellColor(cell)}
-                      ${cell.state === 'hidden' ? 'hover:scale-105 hover:shadow-lg cursor-pointer' : ''}
-                      ${recommendation?.id === cell.id && cell.state === 'hidden' ? 'ring-4 ring-accent ring-offset-2 ring-offset-background' : ''}
+                      ${cell.state === 'hidden' && isPlaying ? 'hover:scale-105 hover:shadow-lg cursor-pointer' : ''}
+                      ${recommendation?.id === cell.id && cell.state === 'hidden' && isPlaying ? 'ring-4 ring-accent ring-offset-2 ring-offset-background' : ''}
                       ${cell.state === 'revealed' ? 'scale-95' : ''}
                       disabled:cursor-not-allowed
                       flex items-center justify-center
@@ -283,20 +430,22 @@ const Index = () => {
                       <div className="absolute inset-0 flex items-center justify-center">
                         {cell.isBomb ? (
                           <Icon name="Bomb" size={24} className="text-red-500" />
-                        ) : cell.neighbors > 0 ? (
-                          <span className="text-2xl font-bold text-emerald-400">{cell.neighbors}</span>
                         ) : (
-                          <Icon name="Check" size={24} className="text-emerald-400" />
+                          <span className="text-2xl">💎</span>
                         )}
                       </div>
                     )}
                     
-                    {cell.state === 'hidden' && showProbabilities && !gameOver && (
+                    {cell.state === 'hidden' && showProbabilities && isPlaying && (
                       <div className="flex flex-col items-center">
                         <span className="text-xs font-semibold text-accent">
                           {cell.probability}%
                         </span>
                       </div>
+                    )}
+
+                    {cell.state === 'hidden' && !isPlaying && (
+                      <div className="text-2xl opacity-30">❓</div>
                     )}
                   </button>
                 ))}
@@ -326,7 +475,7 @@ const Index = () => {
                 </h3>
               </div>
               
-              {recommendation && !gameOver && !gameWon ? (
+              {recommendation && isPlaying && !gameOver && !gameWon ? (
                 <div className="space-y-3">
                   <p className="text-sm text-muted-foreground">
                     Самая безопасная ячейка:
@@ -335,7 +484,7 @@ const Index = () => {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium">Позиция</span>
                       <Badge variant="outline" className="border-accent text-accent">
-                        {Math.floor(recommendation.id / GRID_SIZE) + 1} : {(recommendation.id % GRID_SIZE) + 1}
+                        Ряд {Math.floor(recommendation.id / GRID_SIZE) + 1}, Ячейка {(recommendation.id % GRID_SIZE) + 1}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
@@ -349,7 +498,7 @@ const Index = () => {
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  {gameOver || gameWon ? 'Начните новую игру' : 'Откройте первую ячейку'}
+                  {!isPlaying ? 'Начните игру для получения рекомендаций' : 'Откройте первую ячейку'}
                 </p>
               )}
             </Card>
@@ -365,7 +514,7 @@ const Index = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Открыто ячеек</span>
-                  <span className="font-semibold text-accent">{revealedCount} / {GRID_SIZE * GRID_SIZE - BOMB_COUNT}</span>
+                  <span className="font-semibold text-accent">{revealedCount} / {TOTAL_CELLS - bombCount}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Текущая серия</span>
@@ -373,7 +522,11 @@ const Index = () => {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Бомб на поле</span>
-                  <span className="font-semibold text-destructive">{BOMB_COUNT}</span>
+                  <span className="font-semibold text-destructive">{bombCount}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Ставка</span>
+                  <span className="font-semibold text-accent">{betAmount} ₽</span>
                 </div>
               </div>
             </Card>
@@ -398,6 +551,14 @@ const Index = () => {
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded bg-gradient-to-br from-orange-900/40 to-orange-800/40 border border-orange-700/50"></div>
                   <span className="text-muted-foreground">40-59% безопасно</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">💎</span>
+                  <span className="text-muted-foreground">Безопасная ячейка</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Icon name="Bomb" size={16} className="text-red-500" />
+                  <span className="text-muted-foreground">Бомба</span>
                 </div>
               </div>
             </Card>

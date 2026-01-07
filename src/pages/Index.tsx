@@ -27,7 +27,7 @@ interface GameStats {
 
 const GRID_SIZE = 5;
 const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
-const BOMB_OPTIONS = [1, 3, 5, 7];
+const BOMB_OPTIONS = [2, 3, 5, 7];
 
 const getMultiplier = (bombCount: number, safeCellsRevealed: number): number => {
   const safeCells = TOTAL_CELLS - bombCount;
@@ -40,7 +40,7 @@ const Index = () => {
   const [grid, setGrid] = useState<Cell[]>([]);
   const [gameOver, setGameOver] = useState(false);
   const [gameWon, setGameWon] = useState(false);
-  const [bombCount, setBombCount] = useState(3);
+  const [bombCount, setBombCount] = useState(2);
   const [betAmount, setBetAmount] = useState(100);
   const [currentMultiplier, setCurrentMultiplier] = useState(1.0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -357,7 +357,7 @@ const Index = () => {
                     <Slider
                       value={[bombCount]}
                       onValueChange={(v) => setBombCount(v[0])}
-                      min={1}
+                      min={2}
                       max={7}
                       step={1}
                       className="mb-2"
